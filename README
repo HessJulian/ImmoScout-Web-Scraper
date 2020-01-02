@@ -1,0 +1,5 @@
+Web Scraper for Immobilienscout24.de
+
+This WebScraper allows you to get all the exposes to a certain city in Germany and saves those in a CSV-File.
+
+You can dynamically choose a state and a city in this state to look for exposes
