@@ -1,0 +1,86 @@
+import bs4 as bs
+import urllib.request 
+import time 
+from datetime import datetime 
+import pandas as pd
+import json
+import os
+
+count = 1
+
+path="choose your own path"
+
+#choose state and city in Germany
+url_list=["baden-wuerttemberg","nordrhein-westfalen","bayern","berlin","brandenburg","bremen","hamburg","hessen","mecklenburg-vorpommern","niedersachsen","rheinland-pfalz","saarland","sachsen","sachsen-anhalt","schleswig-holstein","thueringen"]
+output_list=["Baden-Württemberg","Nordrhein-Westfalen","Bayern","Berlin","Brandenburg","Bremen","Hamburg","Hessen","Mecklenburg-Vorpommern","Niedersachsen","Rheinland-Pfalz","Saarland","Sachsen","Sachsen-Anhalt","Schleswig-Holstein","Thüringen"]
+counter=0
+
+print("Choose a state by typing the associated number")
+for i in output_list:
+    print(i +"["+str(counter)+"]")
+    counter=counter+1
+
+x=input("Choose your state: ")
+
+print("Sie haben "+output_list[int(x)]+" gewählt")
+
+country=url_list[int(x)]
+
+city=input("Type your the city you want to look for: ").lower()
+
+if len(city.split("/"))==1:
+    cityname=city
+else:
+    cityname=str(city.split("/")[1])
+
+print("Loop " + str(count) + " started.")
+    
+df = pd.DataFrame()
+l=[]
+
+#scraping of first 10 sites
+for i in range(1,2):
+    l=[]
+    print("Seite: "+str(i))
+    try:
+        soup =    bs.BeautifulSoup(urllib.request.urlopen('https://www.immobilienscout24.de/Suche/de/'+str(country)+'/'+str(city)+'/wohnung-kaufen?pagenumber='+str(i)).read(),'lxml')
+
+        for paragraph in soup.find_all("a"):
+            if r"/expose/" in str(paragraph.get("href")): 
+                l.append(paragraph.get("href").split("#")[0]) 
+                l = list(set(l))
+    
+        for item in l:
+            try:
+                soup = bs.BeautifulSoup(urllib.request.urlopen('https://www.immobilienscout24.de'+item).read(),'lxml')
+    
+                data = pd.DataFrame(json.loads(str(soup.find_all("script")).split("keyValues = ")[1].split("}")[0]+str("}")),index=[str(datetime.now())])
+
+                data["URL"] = str(item)
+
+                description = [] 
+
+                for i in soup.find_all("pre"): 
+                    description.append(i.text)
+
+                data["description"] = str(description)
+
+                df = df.append(data)
+
+            except Exception as e:  #delete duplicates
+
+                print(str(datetime.now())+": " + str(e)) 
+                l = list(filter(lambda x: x != item, l))
+                print("ID " + str(item) + " entfernt.")
+
+            print("Loop " + str(count) + " ended.")  
+            count+=1 
+            time.sleep(1)
+
+    except Exception as e: 
+        print(str(datetime.now())+": " + str(e)) 
+        time.sleep(1)
+        
+#Save Entries
+df.to_csv(str(path)+str(datetime.now())[:10].replace(":","").replace(".","")+"_"+str(cityname)+".csv",sep=";",decimal=",",encoding = "utf-8",index_label="timestamp")    
+print("Scraping has ended")
