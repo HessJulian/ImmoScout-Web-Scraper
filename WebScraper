@@ -5,82 +5,194 @@ from datetime import datetime
 import pandas as pd
 import json
 import os
+import sys
 
-count = 1
+#df = pd.DataFrame()
+#l=[]
+#Germany States
+url_list=["","baden-wuerttemberg","nordrhein-westfalen","bayern","berlin","brandenburg","bremen","hamburg","hessen","mecklenburg-vorpommern","niedersachsen","rheinland-pfalz","saarland","sachsen","sachsen-anhalt","schleswig-holstein","thueringen"]
+output_list=["Deutschland","Baden-Württemberg","Nordrhein-Westfalen","Bayern","Berlin","Brandenburg","Bremen","Hamburg","Hessen","Mecklenburg-Vorpommern","Niedersachsen","Rheinland-Pfalz","Saarland","Sachsen","Sachsen-Anhalt","Schleswig-Holstein","Thüringen"]
 
-path="choose your own path"
-
-#choose state and city in Germany
-url_list=["baden-wuerttemberg","nordrhein-westfalen","bayern","berlin","brandenburg","bremen","hamburg","hessen","mecklenburg-vorpommern","niedersachsen","rheinland-pfalz","saarland","sachsen","sachsen-anhalt","schleswig-holstein","thueringen"]
-output_list=["Baden-Württemberg","Nordrhein-Westfalen","Bayern","Berlin","Brandenburg","Bremen","Hamburg","Hessen","Mecklenburg-Vorpommern","Niedersachsen","Rheinland-Pfalz","Saarland","Sachsen","Sachsen-Anhalt","Schleswig-Holstein","Thüringen"]
-counter=0
-
-print("Choose a state by typing the associated number")
-for i in output_list:
-    print(i +"["+str(counter)+"]")
-    counter=counter+1
-
-x=input("Choose your state: ")
-
-print("Sie haben "+output_list[int(x)]+" gewählt")
-
-country=url_list[int(x)]
-
-city=input("Type your the city you want to look for: ").lower()
-
-if len(city.split("/"))==1:
-    cityname=city
-else:
-    cityname=str(city.split("/")[1])
-
-print("Loop " + str(count) + " started.")
-    
-df = pd.DataFrame()
-l=[]
-
-#scraping of first 10 sites
-for i in range(1,2):
+#choose whether Buy or Rent
+def Init():
+    count = 1
+    df = pd.DataFrame()
     l=[]
-    print("Seite: "+str(i))
-    try:
-        soup =    bs.BeautifulSoup(urllib.request.urlopen('https://www.immobilienscout24.de/Suche/de/'+str(country)+'/'+str(city)+'/wohnung-kaufen?pagenumber='+str(i)).read(),'lxml')
-
-        for paragraph in soup.find_all("a"):
-            if r"/expose/" in str(paragraph.get("href")): 
-                l.append(paragraph.get("href").split("#")[0]) 
-                l = list(set(l))
     
-        for item in l:
+    print("Wollen Sie die Wohnung kaufen oder mieten?")    
+    buy_rent=["Kaufen[0]","Mieten[1]","","Abbrechen[999]"]
+    for choose in buy_rent:
+        print(choose)
+    c=int(input("Ihre Wahl: "))
+    
+    if c==0:
+        choice="wohnung-kaufen?"
+    elif c==1:
+        choice="wohnung-mieten?"
+    else:
+        print("\nSie haben das Programm abgebrochen")
+        return
+    
+    print("\nSie möchten die Wohnung gerne "+str(buy_rent[int(c)][:-3]))
+
+
+    #choose state and city in Germany
+    counter=0
+
+    print("\nWähle ein Bundesland durch drücken der jeweiligen Zahl dahinter\n")
+    for i in output_list:
+        print(i +"["+str(counter)+"]")
+        counter=counter+1
+
+    x=input("Wählen Sie jetzt ein Bundesland: ")
+
+    print("\nSie haben "+output_list[int(x)]+" gewählt")
+    time.sleep(1)
+    country=url_list[int(x)]
+    
+    if not output_list[int(x)]=="Deutschland":
+        print("Möchten Sie das ganze Bundesland durchsuchen oder nur eine bestimmte Stadt?")
+        print("\nBundesland[0]")
+        print("Stadt[1]")
+        a=input()
+    else:
+        a=""
+    
+    if a=="0":
+        url_immoscout='https://www.immobilienscout24.de/Suche/de/'+str(country)+'/'+str(choice)+'pagenumber='
+    elif a=="1":
+        city=input("Geben Sie nun ihre gesuchte Stadt ein: ").lower()
+
+        if len(city.split("/"))==1:
+            cityname=city
+        else:
+            cityname=str(city.split("/")[1])
+            
+        url_immoscout='https://www.immobilienscout24.de/Suche/de/'+str(country)+'/'+str(city)+'/'+str(choice)+'pagenumber='
+
+    print("Loop " + str(count) + " startet.")
+       
+#scraping of first 20 sites
+    if output_list[int(x)]=="Deutschland":
+        cc=0
+        for t in url_list:
+            if cc>0:
+                print(output_list[cc])
+                url_immoscout='https://www.immobilienscout24.de/Suche/de/'+str(t)+'/'+str(choice)+'pagenumber='
+                for i in range(1,2):
+                    l=[]
+                    print("Seite: "+str(i))
+                    try:
+                        soup =    bs.BeautifulSoup(urllib.request.urlopen(str(url_immoscout)+str(i)).read(),'lxml')
+            
+                        for paragraph in soup.find_all("a"):
+                            if r"/expose/" in str(paragraph.get("href")): 
+                                l.append(paragraph.get("href").split("#")[0]) 
+                                l = list(set(l))
+            
+                        for item in l:
+                            try:
+                                soup = bs.BeautifulSoup(urllib.request.urlopen('https://www.immobilienscout24.de'+item).read(),'lxml')
+            
+                                data = pd.DataFrame(json.loads(str(soup.find_all("script")).split("keyValues = ")[1].split("}")[0]+str("}")),index=[str(datetime.now())])
+            
+                                data["URL"] = str(item)
+            
+                                beschreibung = [] 
+            
+                                for i in soup.find_all("pre"): 
+                                    beschreibung.append(i.text)
+            
+                                data["beschreibung"] = str(beschreibung)
+            
+                                df = df.append(data)
+            
+                            except Exception as e:  #delete duplicates
+            
+                                print(str(datetime.now())+": " + str(e)) 
+                                l = list(filter(lambda x: x != item, l))
+                                print("ID " + str(item) + " entfernt.")
+            
+                            print("Loop " + str(count) + " endet.")  
+                            count+=1 
+                            time.sleep(1)
+            
+                    except Exception as e: 
+                        print(str(datetime.now())+": " + str(e)) 
+                        time.sleep(1)
+                        print("\nIhre Stadt konnte leider nicht gefunden werden, \nbitte prüfen Sie den Städtenamen auf Immoscout und versuchen Sie es erneut\n")
+                        time.sleep(1)
+                        Init()
+                    #return df
+                    #Save Entries
+                    if output_list[int(x)]=="Deutschland":
+                        save_name=output_list[int(x)]
+                    elif a=="0":
+                        save_name=str(country)
+                    elif a=="1":
+                        save_name=str(cityname)
+              
+                    df.to_csv("C:/Users/drink/Desktop/WebScraper/Rohdaten/"+str(datetime.now())[:10].replace(":","").replace(".","")+"_"+str(save_name)+"_"+str(buy_rent[int(c)][:-3])+".csv",sep=";",decimal=",",encoding = "utf-8-sig",index_label="timestamp")    
+                    
+                    print("\nScraping ist beended")
+            cc=cc+1
+    else:
+        for i in range(1,401):
+            l=[]
+            print("Seite: "+str(i))
             try:
-                soup = bs.BeautifulSoup(urllib.request.urlopen('https://www.immobilienscout24.de'+item).read(),'lxml')
-    
-                data = pd.DataFrame(json.loads(str(soup.find_all("script")).split("keyValues = ")[1].split("}")[0]+str("}")),index=[str(datetime.now())])
-
-                data["URL"] = str(item)
-
-                description = [] 
-
-                for i in soup.find_all("pre"): 
-                    description.append(i.text)
-
-                data["description"] = str(description)
-
-                df = df.append(data)
-
-            except Exception as e:  #delete duplicates
-
-                print(str(datetime.now())+": " + str(e)) 
-                l = list(filter(lambda x: x != item, l))
-                print("ID " + str(item) + " entfernt.")
-
-            print("Loop " + str(count) + " ended.")  
-            count+=1 
-            time.sleep(1)
-
-    except Exception as e: 
-        print(str(datetime.now())+": " + str(e)) 
-        time.sleep(1)
+                soup =    bs.BeautifulSoup(urllib.request.urlopen(str(url_immoscout)+str(i)).read(),'lxml')
         
-#Save Entries
-df.to_csv(str(path)+str(datetime.now())[:10].replace(":","").replace(".","")+"_"+str(cityname)+".csv",sep=";",decimal=",",encoding = "utf-8",index_label="timestamp")    
-print("Scraping has ended")
+                for paragraph in soup.find_all("a"):
+                    if r"/expose/" in str(paragraph.get("href")): 
+                        l.append(paragraph.get("href").split("#")[0]) 
+                        l = list(set(l))
+        
+                for item in l:
+                    try:
+                        soup = bs.BeautifulSoup(urllib.request.urlopen('https://www.immobilienscout24.de'+item).read(),'lxml')
+        
+                        data = pd.DataFrame(json.loads(str(soup.find_all("script")).split("keyValues = ")[1].split("}")[0]+str("}")),index=[str(datetime.now())])
+        
+                        data["URL"] = str(item)
+        
+                        beschreibung = [] 
+        
+                        for i in soup.find_all("pre"): 
+                            beschreibung.append(i.text)
+        
+                        data["beschreibung"] = str(beschreibung)
+        
+                        df = df.append(data)
+        
+                    except Exception as e:  #delete duplicates
+        
+                        print(str(datetime.now())+": " + str(e)) 
+                        l = list(filter(lambda x: x != item, l))
+                        print("ID " + str(item) + " entfernt.")
+        
+                    print("Loop " + str(count) + " endet.")  
+                    count+=1 
+                    time.sleep(1)
+        
+            except Exception as e: 
+                print(str(datetime.now())+": " + str(e)) 
+                time.sleep(1)
+                print("\nIhre Stadt konnte leider nicht gefunden werden, \nbitte prüfen Sie den Städtenamen auf Immoscout und versuchen Sie es erneut\n")
+                time.sleep(1)
+                Init()
+            #return df
+            #Save Entries
+            if output_list[int(x)]=="Deutschland":
+                save_name=output_list[int(x)+1]
+            elif a=="0":
+                save_name=str(country)
+            elif a=="1":
+                save_name=str(cityname)
+          
+            
+            df.to_csv("C:/Users/drink/Desktop/WebScraper/Rohdaten/"+str(datetime.now())[:10].replace(":","").replace(".","")+"_"+str(save_name)+"_"+str(buy_rent[int(c)][:-3])+".csv",sep=";",decimal=",",encoding = "utf-8-sig",index_label="timestamp")    
+                
+            print("\nScraping ist beended")
+Init()        
+
